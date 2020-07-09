@@ -2,16 +2,18 @@
 
 ### A set of binder-based tutorials for data scientists and non-coders to practice reinforcement-learning
 
+Binder can take a minute to load, so scroll down to read the introduction while you wait.
+
 <ul>
   <li>
-    <a target="_blank" href="https://mybinder.org/v2/gh/js-fitz/Q-Learning/5c766500096609c38387cc8fc5ad193914316ec5?filepath=Q-Learning%20(non-coders).ipynb">Interactive article for non-coders</a>
+    <a target="_blank" href="https://mybinder.org/v2/gh/js-fitz/Q-Learning/f05bf26ecd30294ec2f3ea74485f34de4cd2d1fc?filepath=Q-Learning%20(non-coders).ipynb">Interactive article for non-coders</a>
   </li>
   
   <li>
-<a target="_blank" href="https://mybinder.org/v2/gh/js-fitz/Q-Learning/5c766500096609c38387cc8fc5ad193914316ec5?filepath=Q-Learning%20(Coding).ipynb">Tutorial notebook for data scientists</a>
+<a target="_blank" href="https://mybinder.org/v2/gh/js-fitz/Q-Learning/f05bf26ecd30294ec2f3ea74485f34de4cd2d1fc?filepath=Q-Learning%20(Coding).ipynb">Tutorial notebook for data scientists</a>
   <ul>
   <li>
-  <a target="_blank" href="https://mybinder.org/v2/gh/js-fitz/Q-Learning/5c766500096609c38387cc8fc5ad193914316ec5?filepath=Q-Learning%20(Answers).ipynb">Answers for the tutorial</a>
+  <a target="_blank" href="https://mybinder.org/v2/gh/js-fitz/Q-Learning/f05bf26ecd30294ec2f3ea74485f34de4cd2d1fc?filepath=Q-Learning%20(Answers).ipynbb">Answers for the tutorial</a>
   </li>
     </ul>
  </li>
@@ -19,4 +21,4 @@
 
 ---
 
-Repo: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/js-fitz/Q-Learning/master)
+Full repo: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/js-fitz/Q-Learning/master)
