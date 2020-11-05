@@ -102,7 +102,7 @@ def flip_board(b_key):
     return b_key.replace('X','o').replace('O','X').upper()
 
  
- 
+
 # BOARD STATE EVALUATOR FUNCTION
     
 # check lines for a win - function ends if a win is found, returning the state as a string...
@@ -114,7 +114,7 @@ def evaluate(b, min_contig=min_contig, n_players=2):
      # check if a win is even possible yet, if not, trigger another move
     n_occupied_positions = len(b) - b.count(' ')
     moves_so_far = round(n_occupied_positions/n_players) # round up to get max moves (by X)
-    if moves_so_far < min_contig :
+    if moves_so_far < (min_contig-1) :
         return 'Continue'
     
     # start checking lines for a win. return if found.
@@ -294,14 +294,9 @@ def simulate_game(epsilon_x=1, epsilon_o=1, verb=False, slow_down=False, size=si
             
             # before each move, check current state
             result = evaluate(b, min_contig=min_contig)
-            
-            # terminal state
-            if 'C' not in result: 
-                if verb or slow_down: show(b), print(result)
-                return steps, result[0]
-             
+                         
             # non-terminal state
-            else: 
+            if 'C' in result: 
                 
                 # use this player's e-value to choose the next move 
                 move = get_move(b, epsilon, player)
@@ -317,8 +312,10 @@ def simulate_game(epsilon_x=1, epsilon_o=1, verb=False, slow_down=False, size=si
                     
                 # update the board
                 b[move] = player
-            
-            
+                
+            else: # terminal state
+                if verb or slow_down: show(b), print(result)
+                return steps, result[0]
             
             
 # Q-UPDATE FORMULA
@@ -368,12 +365,13 @@ def backpropagate(steps, winner, alpha=.9, wait_seconds=False):
                 p_steps = p_steps[:-1]
             
         # if hard loss, drop opponent's last move:
-        if player!=winner and winner!='T':
+        if player!=winner and winner!='T': # drop opponent's last move
             p_steps = p_steps[:-1] 
-                       
+               
         # drop the other players' remaining moves
         p_steps = p_steps[::-2]
         
+
         # iterate backwards over steps where player moved
         for n_steps_left, step in enumerate(p_steps):
             
@@ -391,7 +389,6 @@ def backpropagate(steps, winner, alpha=.9, wait_seconds=False):
                 print(f"{player}'s move ({len(p_steps) - n_steps_left}/{len(p_steps)})")
                 show(''.join(future))
 
-                
         # define key variables for get_new_q(), the Q update formula:
         
             old_q = q_table[state][qv][move] # solely for printing
@@ -633,6 +630,7 @@ def visualize_learning(boards='default',
                        batches=batches, min_contig=min_contig):
 
         qval_arrays, games, g_type = train_agent(boards, i, min_contig=min_contig)
+        
         if g_type == 'Training as X (O moves randomly)':
             ims = [im1, im2, im3, ime1]
             focax = ax1   
@@ -676,7 +674,7 @@ def visualize_learning(boards='default',
 # FOR TRAINING WITH**OUT** LIVE ANIMATION (better for bigger simulations)
 def efficient_trainer(iters=1000, batches=3, min_contig=globals()['min_contig']):
     s = time.perf_counter()
-    
+    global q_table
     # for each batch, run these game types:
     game_types = {  # (epsilon_x/o)
         'Training X (random O)': (True, False), # random moves by O
@@ -706,8 +704,7 @@ def efficient_trainer(iters=1000, batches=3, min_contig=globals()['min_contig'])
             for i in range(iters):
                 steps, winner = simulate_game( # random moves if e not specified:
                             init_e*(1-i/iters) if player_e_vals[0] else 1,
-                            init_e*(1-i/iters) if player_e_vals[1] else 1,)
-                
+                            init_e*(1-i/iters) if player_e_vals[1] else 1)
                 # backpropagate
                 backpropagate(steps, winner)
                 e_values[game_type].append(init_e*(1-i/iters))
