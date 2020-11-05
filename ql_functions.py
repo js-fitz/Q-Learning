@@ -1,60 +1,53 @@
 print('Importing functions...', end='')
 
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-warnings.simplefilter(action='ignore', category=UserWarning)
-warnings.simplefilter(action='ignore', category=AttributeError)
-
 import time
 import math
 import random
-
-# for plotting:
 import numpy as np
 
-from IPython.display import HTML
-from IPython.display import Video
+# plotting, interactives & animations
+import matplotlib
+from matplotlib import cm
 import matplotlib.pyplot as plt
+from matplotlib import animation, rc
 import matplotlib.patches as mpatches
 from matplotlib.gridspec import GridSpec
-from matplotlib import animation, rc
-rc('animation', html='jshtml')
-from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
-
+matplotlib.rcParams['animation.embed_limit'] = 120
+rc('animation', html='jshtml')
 import seaborn as sns
 sns.set()
 
-import matplotlib
-matplotlib.rcParams['animation.embed_limit'] = 120
+ # for gameplay in Jupyter
+from IPython.display import HTML
+from IPython.display import Video
+from IPython.core import display
 
+# supress warnings for public release
+global_testing = False
+if global_testing:
+    import warnings
+    warnings.simplefilter(action='ignore', category=FutureWarning)
+    warnings.simplefilter(action='ignore', category=UserWarning)
+    warnings.simplefilter(action='ignore', category=AttributeError)
+    
 
-from IPython.core import display # for gameplay in Jupyter
-
-
-
-lrate=.1
-discount=.9
-
-
+# function to display looping gif of Q-Learning diagram
 def ql_flow(): return Video("ql_flow.mov", width=900, html_attributes='autoplay loop')
 
 
-# defaults
+
+# environment globals
 size=3
 min_contig=3
 
-def new_board(board_size=size):
-    return [' ']*size**2
- 
-def check_for_win(line, min_contig=min_contig):
-    for p in 'XO':
-        for i in list(range(len(line)-min_contig+1)):
-            if line[i:i+min_contig].count(p) == min_contig: return p
-    return False
+# training globals
+lrate=.1
+discount=.9
 
+# for setting gobals in a session. warning, resets (clears) the existing q-table
 def game_settings(size=3, min_contig=3):
-    if min_contig > size: return "ERROR: Minimum length to win must be equal to or less than board size." 
+    if min_contig > size: return "ERROR: Minimum winning length cannot be greater than board size." 
     print('Settings updated:')
     globals()['size'] = size
     print(f'> New board size: {size} x {size} tiles')
@@ -63,21 +56,31 @@ def game_settings(size=3, min_contig=3):
     globals()['q_table'] = {}
     print(f'Q Table reset.')
 
+# —————— BASIC ENVIRONMENT AND ENV. UTILITY FUNCTIONS ——————
 
+def new_board(board_size=size): # returns a blank board of size*size.
+    return [' ']*size**2
+ 
+def check_for_win(line, min_contig=min_contig): # check for a win along a single line of the board
+                                                # (the line will passed from the evaluate() function,r below)
+    for p in 'XO':
+        for i in list(range(len(line)-min_contig+1)):
+            if line[i:i+min_contig].count(p) == min_contig: return p
+    return False
 
-
+# PRINT BOARD FOR HUMAN APPRECIATION
 def show(b, helpers=False):
     board = list(b).copy() # accepts board as list or string
     size = int(math.sqrt(len(board)))  
     
-
-    if helpers: # placeholder values (starting at 1)    
+    # placeholder values (starting at 1)  
+    if helpers:   
         board = [str(e+1) if i==' ' else i for e,i in enumerate(board)]
     
-    # add spacers for boards with double-digits
+    # add spacers for single-digit tiles if board has double-digits
     board = [b if len(b)>1 else f' {b}' for b in board]
         
-    # recolor for visibility:
+    # recolor player tiles (x=red & o=blue) for visibility:
     for e,b in enumerate(board):
         if 'X' in b: board[e] = f"\x1b[31m{b}\x1b[0m" # 31=red
         elif 'O' in b: board[e] = f"\x1b[34m{b}\x1b[0m" # 34=blue
@@ -87,18 +90,27 @@ def show(b, helpers=False):
     for row in range(0, len(board), size): # start of each row
         print('—'*(4*size+1))
         for col in range(size):  # add column to row start
-            print(f'|{board[(row+col)]} |', end='\b')
+            print(f'|{board[(row+col)]} |', end='\b') # backspace extra | (horizontal line) char.
         print('|')
         print('—'*(4*size+1), end='\r')
     print()
 
     
     
-    
-def evaluate(b, min_contig=min_contig):
-
+# check lines for a win - function ends if a win is found, returning the state as a string...
+def evaluate(b, min_contig=min_contig, n_players=2):
+                                        # uses the check_for_win() function from above to check
+                                        # across all possible lines across the board. 
     size = int(math.sqrt(len(b))) # define length of a row (n columns)
-
+    
+     # check if a win is even possible yet, if not, trigger another move
+    n_occupied_positions = len(b) - b.count(' ')
+    moves_so_far = round(n_occupied_positions/n_players) # round up to get max moves (by X)
+    if moves_so_far < min_contig :
+        return 'Continue'
+    
+    # start checking lines for a win. return if found.
+    
     # verticals
     for col in range(size):
         v_line = [b[row+col] for row in range(0, len(b), size)]
@@ -116,23 +128,27 @@ def evaluate(b, min_contig=min_contig):
     winner = check_for_win(dr_line, min_contig)
     if winner: return winner+' Wins!'
     
-    # diags on bigger boards
-    for over in range(1, size-min_contig+1):
-        dr_line = [b[int(row+row/size)+over] for row in range(0, len(b), size)[:-over]]
-        winner = check_for_win(dr_line, min_contig)
-        if winner: return winner+' Wins!'
-    for over in range(1, size-min_contig+1):
-        dr_line = [b[int(row+row/size)-over] for row in range(0, len(b), size)[over:]]
-        winner = check_for_win(dr_line, min_contig)
-        if winner: return winner+' Wins!'
-        
-
     # up-right diagonal
     ur_line = [b[int(size*col-col)] for col in range(1, size+1)[::-1]]   
     winner = check_for_win(ur_line, min_contig)
     if winner: return winner+' Wins!'
     
-    # diags on bigger boards
+    # if it is a "normal board" (3x3, 4x4) — aka min_contig==size — evaluation stops here
+    
+    # if min_contig < size, we need to check smaller diagonal lines as well - not just the big ones in the middle
+    # (on normal boards, these loops have nothing to iterate over)
+    
+    # down-right diagonals for boards with min_contig < size
+    for over in range(1, size-min_contig+1): # how far can we move over to still start a long enough line?
+        dr_line = [b[int(row+row/size)+over] for row in range(0, len(b), size)[:-over]] # get tiles in this line
+        winner = check_for_win(dr_line, min_contig) # is there a win in this line?
+        if winner: return winner+' Wins!'
+    for over in range(1, size-min_contig+1):
+        dr_line = [b[int(row+row/size)-over] for row in range(0, len(b), size)[over:]]
+        winner = check_for_win(dr_line, min_contig)
+        if winner: return winner+' Wins!'
+    
+    # up-right diagonals for boards with min_contig < size
     for over in range(1, size-min_contig+1):
         ur_line = [b[int(size*col-col)+over] for col in range(1, size+1)[over:][::-1]]   
         winner = check_for_win(ur_line, min_contig)
@@ -142,39 +158,48 @@ def evaluate(b, min_contig=min_contig):
         winner = check_for_win(ur_line, min_contig)
         if winner: return winner+' Wins!'
 
+      
+    # all lines possible winning lines have been checked, no win found:
     # If no win, check for empty spaces:
     if b.count(' ')>0:
         return 'Continue'
 
     # If no win and no empty spaces:
     else: return 'Tie!'
-   
 
     
-    
+# for giving the agent a singe dual-perspective Q-Table
 def flip_board(b_key): 
     return b_key.replace('X','o').replace('O','X').upper()
 
 
-   
+# animate a pie chart of random vs. greedy moves over n simulated moves.
 def simulate_e_greedy(e_init, e_terminal, games=100):
     globals()['sims'] = 0
     print('Launching simulator...', end='')
+    
+    # define the range of epsilon values to iterate over for all moves
     e_terminal = int(e_terminal*100)
     e_init = int(e_init*100)
+    
     delta = e_init-e_terminal-1
     if delta<=0:
-        print('\rInitial epsilon should be greater than terminal epsilon! Simulating anyway...')
+        print('\rInitial epsilon should be greater than terminal epsilon!')
         #return
+        print('Simulating anyway...')
+        
     e_factor = games/delta
     e_terminal *= e_factor
     e_init *= e_factor
     e_range = [i/100/e_factor for i in range(int(e_terminal), int(e_init)+1)]
     e_range =  e_range[::-1]     
     
-    def animator(i, e_range=e_range):
+    def animator(i, e_range=e_range): # creates one frame of the animation
         epsilon = e_range[i]
         
+        # moves = [n_random, n_greedy]
+        
+        # make e-greedy decision using random.uniform
         if random.uniform(0,1) > epsilon: moves[0] += 1 
         else: moves[1] += 1
             
@@ -193,14 +218,14 @@ def simulate_e_greedy(e_init, e_terminal, games=100):
         title = plt.title(f'{sum(moves)-2} moves over ε range ({round(e_range[0], 2)}–{round(epsilon, 2)})')
         return patches
     
-    def simgen():
+    def simgen(): # generates the iteration (i) number
         global sims
         i = 0
         while sims < games:
             i += 1
             yield i
             
-    moves = [0, 0]
+    moves = [0, 0] # [n_random, n_greedy] - global
     print(' done.\nLaunching animation...', end='')
     fig = plt.figure(figsize=(7,3))
     anim = animation.FuncAnimation(fig,
@@ -210,11 +235,13 @@ def simulate_e_greedy(e_init, e_terminal, games=100):
                                     blit=True);
     return anim
 
+
+# initialize
 q_table = {}
 qt_update_counter = {}
 
 
-
+# returns the integer index of the chosen position on the board
 def get_move(b, epsilon=.5, player='X', init_q=.3):
     global qt_update_counter
     global q_table
@@ -248,135 +275,159 @@ def get_move(b, epsilon=.5, player='X', init_q=.3):
     
 def simulate_game(epsilon_x=1, epsilon_o=1, verb=False, slow_down=False, size=size):
     global min_contig
+    
+    steps = [] # to store the history of states + actions for this game
+    
     b=new_board(size)
-    steps = []
-    while True: # iterate between players with e-values attached
+    while True: # iterate between players with provided e-values attached
         for player, epsilon in zip(['X', 'O'], [epsilon_x, epsilon_o]):
             
+            # before each move, check current state
             result = evaluate(b, min_contig=min_contig)
+            
+            # terminal state
+            if 'C' not in result: 
+                if verb or slow_down: show(b), print(result)
+                return steps, result[0]
              
             # non-terminal state
-            if 'C' in result:
-                # get next move using player's e-value
+            else: 
+                
+                # use this player's e-value to choose the next move 
                 move = get_move(b, epsilon, player)
-                # store current board + next move in steps
+                
+                # store the current board + the chosen action in steps (a history object)
                 steps.append({'state':''.join(b.copy()), 'move': move,})
-                if slow_down:
+                
+                if slow_down: # visualizing in the kernel
                     show(b, helpers=True)
                     print(f'{player} -> {move+1} (ε={epsilon})\n')
                     time.sleep(slow_down*.2)
                     display.clear_output()
-                # update board
+                    
+                # update the board
                 b[move] = player
-               
-            else: # terminal state
-                if verb or slow_down: show(b), print(result)
-                return steps, result[0]
             
+            
+            
+            
+# Q-UPDATE FORMULA
+
+# lrate and discount are global, set above (after imports)
+
 def get_new_q(current_q, reward, max_future_q):
     return (1-lrate)*current_q + lrate*(reward + discount * max_future_q)
     
-# backprop
+    
+    
+# BACKPROPAGATION FUNCTION
+
+# updates the Q-Table using the "steps" output from simulate_game() after one match
 def backpropagate(steps, winner, alpha=.9, wait_seconds=False):
+   
     global q_table
-    if wait_seconds and wait_seconds>0:
+    
+    # if visualizing in the kernel:
+    if wait_seconds and wait_seconds>0: 
         verb = True
         time.sleep(2)
     else: verb=False
     if wait_seconds>60: return 'wait_seconds cannot exceed 60'
         
+    # backprop through all moves by each player
     for player in ['X', 'O']:
         
-        if verb:
+        if verb: # for visualizing in the kernel
             display.clear_output()
             print('—'*34)
             print(f'Starting backpropagation for {player} ...')
             print('—'*34)
             time.sleep(min(wait_seconds, 2))
             
-        # isolate player's moves in steps:
-        p_steps = steps.copy()
+        # isolate this player's moves from the steps object:
+        p_steps = steps.copy() # working steps object for this specific player
+        
         if player=='O': # if O, drop X's first move
             p_steps = p_steps[1:]
             
-        if winner == 'T': # this works for different board sizes.
+        # check if a slice is needed due to tie
+        if winner == 'T': # the need to slice for this player depends if board size is odd or even
             if player =='O' and size**2%2==1:
                 p_steps = p_steps[:-1]
             if player =='X' and size**2%2==0:
                 p_steps = p_steps[:-1]
             
-        if player!=winner and winner!='T': # drop opponent's last move
+        # if hard loss, drop opponent's last move:
+        if player!=winner and winner!='T':
             p_steps = p_steps[:-1] 
                        
+        # drop the other players' remaining moves
         p_steps = p_steps[::-2]
+        
         # iterate backwards over steps where player moved
         for n_steps_left, step in enumerate(p_steps):
             
-             # select random q table version to update
+             # select random q table to update in this step for Double-Q Learning
             qv = random.choice(['Q1', 'Q2']) 
 
             state, move = step['state'], step['move']
 
-            if player=='O': state = flip_board(state) # reverse tiles for O
+            if player=='O': state = flip_board(state) # if player O, reverse tiles
                 
-            # show board with next move as '*'
-            if verb:
+            if verb: # for kernel visualization, show previous state with selected move as '*'
                 display.clear_output()
                 future = [i for i in step['state']]
                 future[move] = '*'
                 print(f"{player}'s move ({len(p_steps) - n_steps_left}/{len(p_steps)})")
                 show(''.join(future))
 
-        # define key variables for get_new_q()
+                
+        # define key variables for get_new_q(), the Q update formula:
         
-            old_q = q_table[state][qv][move] # for printing
+            old_q = q_table[state][qv][move] # solely for printing
             
-            # define reward
+            # define reward amount (negative if loss, positive if win)
             if winner==player:
                 reward = alpha**(n_steps_left+1)
             elif winner=='T':
-                reward = -.1*alpha**(n_steps_left+1)
+                reward = -.1*alpha**(n_steps_left+1) # slight negative if Tie
             else:
                 reward= -alpha**(n_steps_left+1)
             
-            
+            # if steps remain, get the max_future_q
             if n_steps_left>0:
                 future = p_steps[n_steps_left-1]['state']
                 if player=='O': future = flip_board(future)
                 max_future_q = max(q_table[future][qv].values())
+                
+            # these are arguable    
             elif player==winner: max_future_q = 1
             elif winner=='T': max_future_q = .5
             else: max_future_q = 0
             
-
+            # run the updater formula to nudge the Q-value for this move: 
             new_q = get_new_q(old_q, reward, max_future_q)
             
-            # print step details
+            # overwrite target table with new q (Q1 or Q2, selected randomly above for double-q learning)
+            q_table[state][qv][move] = new_q 
+            
+            # print step details if visualizing in kernel:
             if verb:
                 print(f'  > Move: [{move}]', )
                 print(f'  > Old Q value for [{move}]:', old_q)
                 if player==winner:
                     print(f"    > \x1b[01mReward\x1b[0m for [{move}]: {reward}")
-                else:
-                    print(f"    > \x1b[01mPenalty\x1b[0m for [{move}]: {reward}")
-
+                else: print(f"    > \x1b[01mPenalty\x1b[0m for [{move}]: {reward}")
                 print('    > Max future Q:', max_future_q)
                 print(f'  > New Q value for [{move}]:', new_q)
-                
-            # overwrite target table with new q
-            q_table[state][qv][move] = new_q 
-            
-            # print new Q table
-            if verb:
                 print(f"\n>>> Updated Q Table for '{state}': ", q_table[state][qv])
                 time.sleep(wait_seconds)
                 
     if verb:
         display.clear_output()
         print('Done.')
-                
 
-    return
+    return # safety closer
 
 
 all_games_counter = 0
