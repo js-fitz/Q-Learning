@@ -68,7 +68,8 @@ def check_for_win(line, min_contig=min_contig): # check for a win along a single
             if line[i:i+min_contig].count(p) == min_contig: return p
     return False
 
-# PRINT BOARD FOR HUMAN APPRECIATION
+   
+# SHOW FUNCTION (for human appreciation)
 def show(b, helpers=False):
     board = list(b).copy() # accepts board as list or string
     size = int(math.sqrt(len(board)))  
@@ -96,6 +97,13 @@ def show(b, helpers=False):
     print()
 
     
+# for giving the agent a singe dual-perspective Q-Table
+def flip_board(b_key): 
+    return b_key.replace('X','o').replace('O','X').upper()
+
+ 
+ 
+# BOARD STATE EVALUATOR FUNCTION
     
 # check lines for a win - function ends if a win is found, returning the state as a string...
 def evaluate(b, min_contig=min_contig, n_players=2):
@@ -137,8 +145,9 @@ def evaluate(b, min_contig=min_contig, n_players=2):
     
     # if min_contig < size, we need to check smaller diagonal lines as well - not just the big ones in the middle
     # (on normal boards, these loops have nothing to iterate over)
+    # the "over" iterator shifts the diagonal search over to scan the smaller sections
     
-    # down-right diagonals for boards with min_contig < size
+    # shifted down-right diagonals
     for over in range(1, size-min_contig+1): # how far can we move over to still start a long enough line?
         dr_line = [b[int(row+row/size)+over] for row in range(0, len(b), size)[:-over]] # get tiles in this line
         winner = check_for_win(dr_line, min_contig) # is there a win in this line?
@@ -148,7 +157,7 @@ def evaluate(b, min_contig=min_contig, n_players=2):
         winner = check_for_win(dr_line, min_contig)
         if winner: return winner+' Wins!'
     
-    # up-right diagonals for boards with min_contig < size
+    # shifted up-right diagonals
     for over in range(1, size-min_contig+1):
         ur_line = [b[int(size*col-col)+over] for col in range(1, size+1)[over:][::-1]]   
         winner = check_for_win(ur_line, min_contig)
@@ -158,39 +167,35 @@ def evaluate(b, min_contig=min_contig, n_players=2):
         winner = check_for_win(ur_line, min_contig)
         if winner: return winner+' Wins!'
 
-      
-    # all lines possible winning lines have been checked, no win found:
-    # If no win, check for empty spaces:
-    if b.count(' ')>0:
+        
+    # all possible winning lines were checked, but no win was found:
+    if b.count(' ')>0: # empty spaces remain:
         return 'Continue'
+    else: return 'Tie!' # no empty spaces
+        
 
-    # If no win and no empty spaces:
-    else: return 'Tie!'
-
-    
-# for giving the agent a singe dual-perspective Q-Table
-def flip_board(b_key): 
-    return b_key.replace('X','o').replace('O','X').upper()
-
+     
+# E-GREEDY ANIMATION FUNCTION
 
 # animate a pie chart of random vs. greedy moves over n simulated moves.
 def simulate_e_greedy(e_init, e_terminal, games=100):
     globals()['sims'] = 0
     print('Launching simulator...', end='')
     
-    # define the range of epsilon values to iterate over for all moves
-    e_terminal = int(e_terminal*100)
-    e_init = int(e_init*100)
     
+    # define the range of epsilon values for each moves
+    # (normalize & scale a range to generate the descending epsilon climb)
+    e_terminal = int(e_terminal*100) # convert given values to integers
+    e_init = int(e_init*100)
     delta = e_init-e_terminal-1
     if delta<=0:
         print('\rInitial epsilon should be greater than terminal epsilon!')
         #return
         print('Simulating anyway...')
-        
     e_factor = games/delta
     e_terminal *= e_factor
     e_init *= e_factor
+    # generate list of epsilon values, one for each move
     e_range = [i/100/e_factor for i in range(int(e_terminal), int(e_init)+1)]
     e_range =  e_range[::-1]     
     
@@ -234,13 +239,17 @@ def simulate_e_greedy(e_init, e_terminal, games=100):
                                    interval=70,
                                     blit=True);
     return anim
+   
+    # END E-GREEDY ANIMATOR
 
 
-# initialize
+   
+# initialize global q table
 q_table = {}
 qt_update_counter = {}
 
 
+# CHOOSE MOVE FUNCTION
 # returns the integer index of the chosen position on the board
 def get_move(b, epsilon=.5, player='X', init_q=.3):
     global qt_update_counter
@@ -272,6 +281,7 @@ def get_move(b, epsilon=.5, player='X', init_q=.3):
         return max(q_vals, key=q_vals.get)
 
     
+# SIMULATE ONES GAME
     
 def simulate_game(epsilon_x=1, epsilon_o=1, verb=False, slow_down=False, size=size):
     global min_contig
@@ -661,6 +671,9 @@ def visualize_learning(boards='default',
     return anim
 
 
+   
+
+# FOR TRAINING WITH**OUT** LIVE ANIMATION (better for bigger simulations)
 def efficient_trainer(iters=1000, batches=3, min_contig=globals()['min_contig']):
     s = time.perf_counter()
     
@@ -709,10 +722,10 @@ def efficient_trainer(iters=1000, batches=3, min_contig=globals()['min_contig'])
     display.clear_output()
     print(f'>>> {iters*batches*len(game_types)} games completed ', end='')
     print(f'in {dur} s (avg {round(iters*batches*len(game_types)/dur)} games/second)')
-    return results, e_values
+    
+    return results, e_values # stats for plotting AFTER the simulation is complete...
 
-
-
+# ...plot results from the efficient trainer (static line charts of winning rates over time) 
 def plot_learning(results, e_values, game_type, row):
     plt.subplot(3,1,row+1)
     plt.plot(range(len(e_values)),
@@ -725,6 +738,11 @@ def plot_learning(results, e_values, game_type, row):
     plt.subplots_adjust(hspace=0.5)
     plt.legend(fontsize=9), plt.title(game_type), plt.show();
     
+    
+# COMPLETE TRAINING FUNCTION
+# this is for ease of use in the kernel
+# to automatically train a decent number of sumalations and the plot results
+# running this once should let the agent see around 99% of all possible board states
 def full_training(iters=1000, batches=15, min_contig=globals()['min_contig']):
     results, e_values = efficient_trainer(iters=iters, batches=batches, min_contig=min_contig)
     print('Plotting results:')
@@ -735,6 +753,11 @@ def full_training(iters=1000, batches=15, min_contig=globals()['min_contig']):
 
      
     
+# INTERACTIVE PLAY AGAINST THE AGENT
+    
+
+# ARE ANY NON-TIE RESULTS STILL POSSIBLE?
+# during a human-vs-computer match, later in the game, check futures to see if all paths lead to a tie
 def check_futures(board, player, results=[]):
     global min_contig
     state = evaluate(board, min_contig=min_contig)[0]
@@ -747,12 +770,14 @@ def check_futures(board, player, results=[]):
     return set(results)
 
 
-def versus_agent(custom_q_table=False):
+
+# LAUNCH THE INTERACTIVE PLAYER:
+def versus_agent(custom_q_table=False): # accepts a custom q_table for comparing multiple agents
 
     global min_contig
     global q_table
     if custom_q_table: # custom agent
-        answers_table = globals()['q_table']
+        cache_table = globals()['q_table'] # save existing table
         globals()['q_table'] = custom_q_table
 
     
@@ -767,13 +792,13 @@ def versus_agent(custom_q_table=False):
     ties = 0
     losses = 0
     
-    # start engine
+    # start game "engine"
     exit = 0
     while True:  
         b = new_board()
         show(b)
         
-        # define user
+        # define user with input
         tries = 0
         while True: 
             user = input(prompt='Choose a player (X or O): ').replace('0', 'o').upper()
@@ -791,32 +816,32 @@ def versus_agent(custom_q_table=False):
         # start moving
         restart = 0 
         while True:
-            for player in 'XO':
+            for player in 'XO': # iterate between players
                 
                 show(b, helpers=True)
-                state = evaluate(b, min_contig) # check for terminal state
+                state = evaluate(b, min_contig) # evaluate current board state
                 
-                if b.count(' ')<3:
+                if b.count(' ')<3: # if near the end, see if any wins are still possible
                     if check_futures(b, player)=={'T'}:
                         state = 'Tie!'
                 
                 if 'C' in state and not restart: # get next move + update board
                     
-                    # final move automatic
+                    # make the last move automatically (only one choice)
                     if b.count(' ')==1:  move = get_move(b, 0, player)
                     
-                    # player's choice
+                    # user's turn
                     elif player==user:
                         tries = 0
-                        while True:
+                        while True: # try to get user's choice
                             move = input(prompt=f'Your move, {user}: ')
                             if 'q' in move.lower():
-                                restart=True
+                                restart=True # manual quit
                                 break
                             try:
-                                move = int(move)-1 # verify move is integer
-                                try: # verify move is in range
-                                    if b[move] in 'OX': # verify position is available
+                                move = int(move)-1 # is input integer?
+                                try: # does the position exist on this board?
+                                    if b[move] in 'OX': # is the position available?
                                         print('Position occupied!')
                                     else: break
                                 except:
@@ -824,21 +849,23 @@ def versus_agent(custom_q_table=False):
                             except: print('Enter a number!')
                             tries+=1
                             if tries>2:
-                                exit = True
+                                exit = True # 3 failed tries --> quit
                                 break
                     
-                    # agent's choice
+                    # agent's turn
                     elif player==agent: move = get_move(b, 0, player)
                     
-                    print('checking for restart:')
+                    # end game if user entered 'q' or input failed
                     if exit or restart: break
                     
-                    # update board
+                    # make selected move (update the board)
                     b[move] = player               
                 
-                # show results, restart or quit
+                # game over
                 elif 'C' not in state:
                     winner = state[0]
+                  
+                    # print match result
                     if user == winner:
                         wins +=1
                         print('You won!')
@@ -849,9 +876,13 @@ def versus_agent(custom_q_table=False):
                         losses +=1
                         print(state)
                     print('—'*13) 
+                    
+                    # print overall stats for this session
                     for stat, n in zip(['Won','Tied','Lost'], [wins,ties,losses]):
                         if n>0: print(f'{stat}: {n}')
                     time.sleep(.5)
+                    
+                    # ask if play again
                     play_again = input(prompt=f'Play again? (y/n): ')
                     if 'y' in play_again.lower(): restart = True
                     else: exit = True 
@@ -859,21 +890,21 @@ def versus_agent(custom_q_table=False):
                 
                 # end step
                 display.clear_output() 
-            # end game
+                
+            # end game if user selected restart
             if restart or exit:
                 display.clear_output()
                 break  
-        # stop playing
+               
+        # end the outer loop
         if exit: break
             
-            
-    existing_table = globals()['q_table']
-    globals()['q_table'] = q_table
+    # if a custom table was used, return default to original q_table
+    if custom_q_table: # custom agent
+        globals()['q_table'] = cache_table
             
     print('Goodbye!')
     
-    if custom_q_table: # custom agent
-        globals()['q_table'] = answers_table
         
 
 print('\rFunctions imported successfully.'+50*' ')
