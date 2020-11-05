@@ -443,25 +443,28 @@ def visualize_learning(boards='default',
 # SIMULATE ONE GAME
     def train_agent(boards, i, init_e=init_e, min_contig=min_contig):
         
+
+        # set game index info
         g_type = game_rotator[ int(((i+1)/sims_per_batch))%3 ]
-        e_vals = games[g_type]['evals']
+        g_count = (i)%sims_per_batch # which game (in this batch) 
+        batch_n = int((int((i-1)/sims_per_batch))/3) # which batch?
         
-        # FIGURE THIS OUT!!!
-        g_count = (i)%sims_per_batch
-        batch_n = int((int((i-1)/sims_per_batch))/3)
-        intelligence = (1-g_count/sims_per_batch)*(1-batch_n/batches)*init_e
-        if g_type == 'Training as both (versus)': intelligence*=.5
-        
+        # set epsilon values for player (tell one or both players to move using the Q Table)
+        e_vals = games[g_type]['evals'] # get (T/F, T/F) epsilon bools for (X, O)
+        with_low_e = (1-g_count/sims_per_batch)*(1-batch_n/batches)*init_e
+        if g_type == 'Training as both (versus)': with_low_e*=.5 # decrease epsilon for training against each other,
+                                                                 # otherwise it takes too long to visualize changes
+                                                                 # should be addressed if formally published
         # simulate game & update q table
         steps, winner = simulate_game(
-            intelligence if e_vals[0] else 1, # epsilon X 
-            intelligence if e_vals[1] else 1,  # epsilon O 
+            with_low_e if e_vals[0] else 1, # epsilon X 
+            with_low_e if e_vals[1] else 1,  # epsilon O 
             )
         backpropagate(steps, winner)
         
         games[g_type]['wins'][winner] += 1
         stats =  {p: games[g_type]['wins'][p] / sum(games[g_type]['wins'].values()) for p in 'XOT'}
-        stats.update({'e': intelligence})
+        stats.update({'e': with_low_e})
         games[g_type]['stats'] += [stats]
             # total wins divided by total games for each player
 
