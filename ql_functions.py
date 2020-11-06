@@ -175,6 +175,11 @@ def evaluate(b, min_contig=min_contig, n_players=2):
         
 
      
+# —————— GAMEPLAY & E-GREEDY FUNCTIONS ——————
+
+     
+     
+     
 # E-GREEDY ANIMATION FUNCTION
 
 # animate a pie chart of random vs. greedy moves over n simulated moves.
@@ -317,7 +322,13 @@ def simulate_game(epsilon_x=1, epsilon_o=1, verb=False, slow_down=False, size=si
                 if verb or slow_down: show(b), print(result)
                 return steps, result[0]
             
-            
+  
+  
+  
+# —————— Q-UPDATED & BACKPROPAGATION FUNCTIONS ——————
+
+  
+  
 # Q-UPDATE FORMULA
 
 # lrate and discount are global, set above (after imports)
@@ -436,6 +447,13 @@ def backpropagate(steps, winner, alpha=.9, wait_seconds=False):
 
     return # safety closer
 
+   
+   
+   
+       # —————— TRAINING WITH LIVE ANIMATION ——————
+       # (smaller preliminary simulation)
+
+   
 
 all_games_counter = 0
 
@@ -670,8 +688,10 @@ def visualize_learning(boards='default',
 
 
    
-
-# FOR TRAINING WITH**OUT** LIVE ANIMATION (better for bigger simulations)
+   
+       # —————— TRAINING WITHOUT LIVE ANIMATION ——————
+       #(better for bigger simulations)
+     
 def efficient_trainer(iters=1000, batches=3, min_contig=globals()['min_contig']):
     s = time.perf_counter()
     global q_table
@@ -750,8 +770,10 @@ def full_training(iters=1000, batches=15, min_contig=globals()['min_contig']):
 
      
     
-# INTERACTIVE PLAY AGAINST THE AGENT
+
     
+    # —————— INTERACTIVE PLAY AGAINST THE AGENT ——————
+
 
 # ARE ANY NON-TIE RESULTS STILL POSSIBLE?
 # during a human-vs-computer match, later in the game, check futures to see if all paths lead to a tie
