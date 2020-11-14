@@ -1,5 +1,7 @@
 # Q-Learning in pure python
 
+Video presentation of this project at IstanbulTechWeek 2020: https://www.youtube.com/watch?v=aV7-4iKWOuw
+
 ### A set of binder-based tutorials for data scientists and non-coders to practice reinforcement-learning
 
 Binder can take a minute to load, so scroll down to read the introduction while you wait.
