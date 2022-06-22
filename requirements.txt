@@ -1,4 +1,4 @@
 # for plotting:
 matplotlib==2.2.4
 seaborn==0.9.0
-numpy==1.18.5
+numpy==1.22.0
